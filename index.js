@@ -16,7 +16,12 @@ const db = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
-    database: process.env.DB_NAME
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT,
+    ssl: {
+        rejectUnauthorized: true
+    }
+
 })
 
 db.connect(err=>{
@@ -48,5 +53,5 @@ app.post('/login', (req, res) => {
 
 
 app.listen(PORT, ()=>{
-    console.log('Servidor Corriendo en http://localhost:3000');
+    console.log('Servidor corriendo en el puerto ${PORT}');
 });
