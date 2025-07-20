@@ -42,7 +42,8 @@ app.post('/login', (req, res) => {
 
     const sql = 'SELECT * FROM usuarios WHERE usuario = ? AND clave = ?';
     db.query(sql,[usuario, clave], (err, resultados) => {
-        if (err) return res.status(500).json({mensaje: 'Error en el servidor'});
+        if (err)   console.error('Error en la consulta:', err);
+        return res.status(500).json({mensaje: 'Error en el servidor'});
         if (resultados.length > 0){
             res.status(200).json({ mensaje: 'Acceso permitido', acceso: true});
         } else {
