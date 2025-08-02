@@ -8,7 +8,7 @@
   <pre id="salida">Cargando...</pre>
 
   <script>
-    fetch("https://script.google.com/macros/s/AKfycbwIgyS0V4uN4UBX88e47D_trXw6uTqtW2NB4N3qdvg33HVMLkV3BxBhPfSqt-z4ieSEdQ/exec")
+    fetch("https://backend-login-01tj.onrender.com")
       .then(res => res.json())
       .then(data => {
         document.getElementById("salida").textContent = JSON.stringify(data, null, 2);

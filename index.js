@@ -1,59 +1,69 @@
-const express = require('express')
-const mysql = require('mysql2')
-const cors = require('cors')
-const dotenv = require('dotenv')
+const express = require('express');
+const { google } = require('googleapis');
+const cors = require('cors');
+const bodyParser = require('body-parser');
 
-
-dotenv.config()
-const app  = express()
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
+app.use(bodyParser.json());
 
-app.use(express.json());
-
-const db = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT,
-    ssl: {
-        rejectUnauthorized: false
-    }
-
-})
-
-db.connect(err=>{
-    if (err){
-        console.error('Error de conexión a MySQL:', err);
-    } else{
-        console.log('Conexión a MySQL exitosa!');
-    }
-})
-
-app.get('/', (req, res) => {
-res.send('Servidor y base de datos funcionando');
+const spreadsheetId = '1Ai06pOnxSwDWR_skjF4BL05V1jM-aXXeoi6Zl2QsQ8Q'; // Tu ID de hoja de cálculo
+const auth = new google.auth.GoogleAuth({
+  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 
+async function getClient() {
+  return await auth.getClient();
+}
 
-app.post('/login', (req, res) => {
-    const{ usuario, clave } = req.body;
+// Obtener datos de una hoja específica
+app.get('/:hoja', async (req, res) => {
+  const hoja = req.params.hoja;
+  try {
+    const client = await getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
 
-    const sql = 'SELECT * FROM usuarios WHERE usuario = ? AND clave = ?';
-    db.query(sql,[usuario, clave], (err, resultados) => {
-        if (err)  { console.error('Error en la consulta:', err);
-        return res.status(500).json({mensaje: 'Error en el servidor'});
-        }
-        if (resultados.length > 0){
-            res.status(200).json({ mensaje: 'Acceso permitido', acceso: true});
-        } else {
-            res.status(401).json({ mensaje: 'Credenciales Inválidas'});
-        }
-    })
-})
+    const range = `${hoja}!A1:Z1000`;
 
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+    });
 
-app.listen(PORT, ()=>{
-    console.log(`Servidor corriendo en el puerto ${PORT}`);
+    res.json(response.data.values);
+  } catch (err) {
+    console.error('Error GET:', err);
+    res.status(500).json({ error: 'Error al obtener los datos' });
+  }
+});
+
+// Agregar fila a una hoja específica
+app.post('/:hoja', async (req, res) => {
+  const hoja = req.params.hoja;
+  const valores = Object.values(req.body);
+  try {
+    const client = await getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${hoja}!A1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [valores],
+      },
+    });
+
+    res.json({ mensaje: 'Fila agregada con éxito' });
+  } catch (err) {
+    console.error('Error POST:', err);
+    res.status(500).json({ error: 'Error al agregar la fila' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
