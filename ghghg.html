@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ver datos desde Google Sheets API</title>
+</head>
+<body>
+  <h1>Resultados</h1>
+  <pre id="salida">Cargando...</pre>
+
+  <script>
+    fetch("https://script.google.com/macros/s/AKfycbwIgyS0V4uN4UBX88e47D_trXw6uTqtW2NB4N3qdvg33HVMLkV3BxBhPfSqt-z4ieSEdQ/exec")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("salida").textContent = JSON.stringify(data, null, 2);
+      })
+      .catch(err => {
+        document.getElementById("salida").textContent = "❌ Error al cargar datos: " + err.message;
+      });
+  </script>
+</body>
+</html>
