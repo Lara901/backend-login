@@ -33,11 +33,19 @@ app.post("/login", async (req, res) => {
     });
 
     const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return res.status(500).json({ error: "La hoja está vacía o mal configurada" });
+    }
+
     const headers = rows[0];
     const data = rows.slice(1);
 
     const usuarioIndex = headers.indexOf("usuario");
     const contraseñaIndex = headers.indexOf("contraseña");
+
+    if (usuarioIndex === -1 || contraseñaIndex === -1) {
+      return res.status(500).json({ error: "La hoja 'Usuarios' debe tener columnas 'usuario' y 'contraseña'" });
+    }
 
     const usuarioValido = data.find(
       (row) =>
@@ -51,8 +59,8 @@ app.post("/login", async (req, res) => {
       res.status(401).json({ login: false, mensaje: "Credenciales inválidas" });
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error en login" });
+    console.error("Error en login:", error);
+    res.status(500).json({ error: error.message || "Error en login" });
   }
 });
 
