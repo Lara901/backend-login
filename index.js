@@ -24,32 +24,46 @@ const sheets = google.sheets({ version: "v4", auth });
 
 // LOGIN
 app.post("/login", async (req, res) => {
-  const { usuario, contraseña } = req.body;
-
   try {
+    const { usuario, contrasena } = req.body;
+
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: "v4", auth: client });
+
+    // Leer hoja Usuarios (incluye encabezados)
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${USUARIOS_SHEET}!A:B`,
+      spreadsheetId,
+      range: "Usuarios", // Asegúrate que esta es la pestaña correcta
     });
 
-    const [headers, ...rows] = response.data.values;
-    const usuarioIndex = headers.indexOf("usuario");
-    const contraseñaIndex = headers.indexOf("contraseña");
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Sin datos" });
+    }
 
-    const usuarioValido = rows.find(
-      (row) =>
-        row[usuarioIndex] === usuario &&
-        row[contraseñaIndex] === contraseña
+    const headers = rows[0];
+    const usuarios = rows.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((header, i) => {
+        obj[header.toLowerCase()] = row[i]?.trim();
+      });
+      return obj;
+    });
+
+    const user = usuarios.find(u =>
+      u.usuario?.toLowerCase() === usuario.toLowerCase().trim() &&
+      u.contraseña === contrasena.trim()
     );
 
-    if (usuarioValido) {
-      res.status(200).json({ login: true });
+    if (user) {
+      res.status(200).json({ success: true });
     } else {
-      res.status(401).json({ login: false, mensaje: "Credenciales inválidas" });
+      res.status(401).json({ success: false, message: "Credenciales inválidas" });
     }
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error en login" });
+    console.error("Error en login:", error);
+    res.status(500).json({ success: false, message: "Error al conectar con Google Sheets" });
   }
 });
 
