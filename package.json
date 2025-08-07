@@ -16,7 +16,7 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "google-spreadsheet": "^5.0.2",
-    "googleapis": "^154.1.0",
+    "googleapis": "^105.0.0",
     "mysql2": "^3.14.3",
     "node-fetch": "^3.3.2"
   }
