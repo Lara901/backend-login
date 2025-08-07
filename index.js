@@ -18,7 +18,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // AUTENTICACIÓN GOOGLE SHEETS
-const googleCreds = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+const googleCreds = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
 
 googleCreds.private_key = googleCreds.private_key.replace(/\\n/g, '\n');
 const auth = new google.auth.GoogleAuth({
