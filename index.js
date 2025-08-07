@@ -17,8 +17,8 @@ app.use(bodyParser.json());
 
 // AUTENTICACIÓN GOOGLE SHEETS
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(fs.readFileSync("credentials.json", "utf8")),
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON),
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 const sheets = google.sheets({ version: "v4", auth });
 
