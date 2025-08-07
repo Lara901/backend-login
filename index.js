@@ -10,7 +10,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SPREADSHEET_ID = "1Ai06pOnxSwDWR_skjF4BL05V1jM-aXXeoi6Zl2QsQ8Q"; // Cambia esto por el ID de tu Google Sheet
-const SHEETS = ["BD", "Control pacientes", "Flujo_de_caja", "INICIO"];
+const SHEETS = ["BD", "Control_Pacientes", "Flujo_de_Caja", "INICIO"];
 const USUARIOS_SHEET = "Usuarios";
 
 // MIDDLEWARES
