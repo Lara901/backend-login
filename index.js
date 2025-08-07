@@ -1,244 +1,231 @@
-import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
-import { google } from 'googleapis';
-const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+import express from "express";
+import cors from "cors";
+import { google } from "googleapis";
+import bodyParser from "body-parser";
+import fs from "fs";
 
-dotenv.config();
-
+// CONFIGURACIÓN
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
+const SPREADSHEET_ID = "1Ai06pOnxSwDWR_skjF4BL05V1jM-aXXeoi6Zl2QsQ8Q"; // ← Reemplaza por tu ID real
+const SHEETS = ["BD", "Control_pacientes", "Flujo_de_caja", "INICIO"];
+const USUARIOS_SHEET = "Usuarios";
 
+// MIDDLEWARES
 app.use(cors());
 app.use(bodyParser.json());
 
-// ------------------ CONEXIÓN MYSQL ------------------
-const db = await mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
-
-// ------------------ CONEXIÓN GOOGLE SHEETS ------------------
+// AUTENTICACIÓN GOOGLE SHEETS
 const auth = new google.auth.GoogleAuth({
-  credentials,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  credentials: JSON.parse(fs.readFileSync("credentials.json", "utf8")),
+  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
-const sheets = google.sheets({ version: 'v4', auth });
-const SPREADSHEET_ID = '1Ai06pOnxSwDWR_skjF4BL05V1jM-aXXeoi6Zl2QsQ8Q'; // Cambia por tu ID real
+const sheets = google.sheets({ version: "v4", auth });
 
-// ------------------ LOGIN MYSQL ------------------
-app.post('/login', async (req, res) => {
-  const { usuario, clave } = req.body;
-  if (!usuario || !clave) return res.status(400).json({ error: 'Faltan campos' });
+// LOGIN
+app.post("/login", async (req, res) => {
+  const { usuario, contraseña } = req.body;
 
   try {
-    const [rows] = await db.execute(
-      'SELECT * FROM usuarios WHERE usuario = ? AND clave = ?',
-      [usuario, clave]
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${USUARIOS_SHEET}!A:B`,
+    });
+
+    const [headers, ...rows] = response.data.values;
+    const usuarioIndex = headers.indexOf("usuario");
+    const contraseñaIndex = headers.indexOf("contraseña");
+
+    const usuarioValido = rows.find(
+      (row) =>
+        row[usuarioIndex] === usuario &&
+        row[contraseñaIndex] === contraseña
     );
 
-    if (rows.length > 0) {
-      res.json({ success: true, usuario: rows[0] });
+    if (usuarioValido) {
+      res.status(200).json({ login: true });
     } else {
-      res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+      res.status(401).json({ login: false, mensaje: "Credenciales inválidas" });
     }
   } catch (error) {
-    console.error('Error en /login:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
+    console.error(error);
+    res.status(500).json({ error: "Error en login" });
   }
 });
 
-// ------------------ GET: Obtener todos los registros ------------------
-app.get('/hoja/:nombre', async (req, res) => {
-  const sheetName = req.params.nombre;
+// OBTENER TODOS LOS DATOS DE UNA HOJA
+app.get("/hoja/:nombre", async (req, res) => {
+  const nombre = req.params.nombre;
+  if (!SHEETS.includes(nombre)) {
+    return res.status(400).json({ error: "Hoja no permitida" });
+  }
 
   try {
-    const range = `${sheetName}!A1:Z`;
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range,
+      range: `${nombre}`,
     });
 
     const [headers, ...rows] = response.data.values || [];
-
-    const data = rows.map(row => {
+    const datos = rows.map((row) => {
       const obj = {};
-      headers.forEach((h, i) => {
-        obj[h] = row[i] || '';
+      headers.forEach((col, i) => {
+        obj[col] = row[i] || "";
       });
       return obj;
     });
 
-    res.json(data);
+    res.json(datos);
   } catch (error) {
-    console.error('Error al leer hoja:', error);
-    res.status(500).json({ error: 'Error al leer datos' });
+    console.error(error);
+    res.status(500).json({ error: "Error al obtener datos" });
   }
 });
 
-// ------------------ POST: Crear nuevo registro (con generación automática de ID) ------------------
-app.post('/hoja/:nombre', async (req, res) => {
-  const sheetName = req.params.nombre;
-  const newData = req.body;
+// OBTENER FILA POR ID
+app.get("/hoja/:nombre/:id", async (req, res) => {
+  const { nombre, id } = req.params;
+  if (!SHEETS.includes(nombre)) {
+    return res.status(400).json({ error: "Hoja no permitida" });
+  }
 
   try {
-    // Obtener encabezados
-    const headerRange = `${sheetName}!A1:Z1`;
-    const headerResponse = await sheets.spreadsheets.values.get({
+    const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: headerRange,
+      range: `${nombre}`,
     });
 
-    const headers = headerResponse.data.values[0];
+    const [headers, ...rows] = response.data.values;
+    const idIndex = headers.indexOf("ID");
+    const fila = rows.find((row) => row[idIndex] === id);
 
-    // Obtener filas actuales
-    const allRange = `${sheetName}!A2:A`;
-    const idResponse = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: allRange,
+    if (!fila) return res.status(404).json({ error: "ID no encontrado" });
+
+    const obj = {};
+    headers.forEach((col, i) => {
+      obj[col] = fila[i] || "";
     });
 
-    const idColumn = idResponse.data.values || [];
+    res.json(obj);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al buscar por ID" });
+  }
+});
 
-    let nuevoID = 1;
+// AGREGAR NUEVA FILA
+app.post("/hoja/:nombre", async (req, res) => {
+  const { nombre } = req.params;
+  const datos = req.body;
 
-    if (!newData.ID) {
-      const numericIDs = idColumn
-        .map(row => parseInt(row[0]))
-        .filter(num => !isNaN(num));
+  if (!SHEETS.includes(nombre)) {
+    return res.status(400).json({ error: "Hoja no permitida" });
+  }
 
-      const maxID = numericIDs.length ? Math.max(...numericIDs) : 0;
-      nuevoID = maxID + 1;
-      newData.ID = nuevoID.toString(); // Asegurar que sea string
-    }
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${nombre}`,
+    });
 
-    // Crear la nueva fila con todos los encabezados
-    const newRow = headers.map(header => newData[header] || '');
-
-    const appendRange = `${sheetName}!A:Z`;
+    const [headers] = response.data.values;
+    const nuevaFila = headers.map((col) => datos[col] || "");
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: appendRange,
-      valueInputOption: 'RAW',
-      insertDataOption: 'INSERT_ROWS',
+      range: `${nombre}`,
+      valueInputOption: "RAW",
       requestBody: {
-        values: [newRow],
+        values: [nuevaFila],
       },
     });
 
-    res.json({ message: 'Fila insertada correctamente', id: newData.ID });
+    res.status(201).json({ mensaje: "Agregado correctamente" });
   } catch (error) {
-    console.error('Error al insertar:', error);
-    res.status(500).json({ error: 'Error al insertar la fila' });
+    console.error(error);
+    res.status(500).json({ error: "Error al agregar fila" });
   }
 });
-// ------------------ PUT: Editar por ID ------------------
-app.put('/hoja/:nombre/:id', async (req, res) => {
-  const sheetName = req.params.nombre;
-  const id = req.params.id;
-  const updateData = req.body;
+
+// EDITAR FILA POR ID
+app.put("/hoja/:nombre/:id", async (req, res) => {
+  const { nombre, id } = req.params;
+  const nuevosDatos = req.body;
+
+  if (!SHEETS.includes(nombre)) {
+    return res.status(400).json({ error: "Hoja no permitida" });
+  }
 
   try {
-    const range = `${sheetName}!A1:Z`;
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range,
+      range: `${nombre}`,
     });
 
-    const [headers, ...rows] = response.data.values || [];
-    const rowIndex = rows.findIndex((row) => row[0] === id);
-    if (rowIndex === -1) return res.status(404).json({ error: 'ID no encontrado' });
+    const [headers, ...rows] = response.data.values;
+    const idIndex = headers.indexOf("ID");
+    const filaIndex = rows.findIndex((row) => row[idIndex] === id);
 
-    const updatedRow = headers.map(header => updateData[header] || '');
-    const updateRange = `${sheetName}!A${rowIndex + 2}:Z${rowIndex + 2}`;
+    if (filaIndex === -1) {
+      return res.status(404).json({ error: "ID no encontrado" });
+    }
+
+    const filaNumero = filaIndex + 2;
+    const valoresActualizados = headers.map((col) => nuevosDatos[col] || "");
 
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: updateRange,
-      valueInputOption: 'RAW',
-      requestBody: { values: [updatedRow] },
-    });
-
-    res.json({ message: 'Fila actualizada correctamente' });
-  } catch (error) {
-    console.error('Error al actualizar:', error);
-    res.status(500).json({ error: 'Error al actualizar la fila' });
-  }
-});
-
-// ------------------ DELETE: Eliminar por ID ------------------
-app.delete('/hoja/:nombre/:id', async (req, res) => {
-  const sheetName = req.params.nombre;
-  const id = req.params.id;
-
-  try {
-    const range = `${sheetName}!A1:Z`;
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range,
-    });
-
-    const [headers, ...rows] = response.data.values || [];
-    const rowIndex = rows.findIndex((row) => row[0] === id);
-    if (rowIndex === -1) return res.status(404).json({ error: 'ID no encontrado' });
-
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
+      range: `${nombre}!A${filaNumero}`,
+      valueInputOption: "RAW",
       requestBody: {
-        requests: [
-          {
-            deleteDimension: {
-              range: {
-                sheetId: 0, // Por defecto. Para otras hojas, reemplazar con su ID real
-                dimension: 'ROWS',
-                startIndex: rowIndex + 1,
-                endIndex: rowIndex + 2,
-              },
-            },
-          },
-        ],
+        values: [valoresActualizados],
       },
     });
 
-    res.json({ message: 'Fila eliminada correctamente' });
+    res.json({ mensaje: "Actualizado correctamente" });
   } catch (error) {
-    console.error('Error al eliminar fila:', error);
-    res.status(500).json({ error: 'Error al eliminar la fila' });
+    console.error(error);
+    res.status(500).json({ error: "Error al actualizar" });
   }
 });
 
-// ------------------ INICIAR SERVIDOR ------------------
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-});
-// Obtener un solo registro por ID
-app.get('/hoja/:sheetName/:id', async (req, res) => {
-  const { sheetName, id } = req.params;
+// ELIMINAR FILA POR ID
+app.delete("/hoja/:nombre/:id", async (req, res) => {
+  const { nombre, id } = req.params;
+
+  if (!SHEETS.includes(nombre)) {
+    return res.status(400).json({ error: "Hoja no permitida" });
+  }
 
   try {
-    const range = `${sheetName}!A1:Z`;
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range,
+      range: `${nombre}`,
     });
 
-    const [headers, ...rows] = response.data.values || [];
-    const row = rows.find((row) => row[0] === id);
-    if (!row) return res.status(404).json({ error: 'ID no encontrado' });
+    const [headers, ...rows] = response.data.values;
+    const idIndex = headers.indexOf("ID");
+    const filaIndex = rows.findIndex((row) => row[idIndex] === id);
 
-    const rowData = {};
-    headers.forEach((header, index) => {
-      rowData[header] = row[index] || '';
+    if (filaIndex === -1) {
+      return res.status(404).json({ error: "ID no encontrado" });
+    }
+
+    const filaNumero = filaIndex + 2;
+
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${nombre}!A${filaNumero}:Z${filaNumero}`,
     });
 
-    res.json(rowData);
+    res.json({ mensaje: "Eliminado correctamente" });
   } catch (error) {
-    console.error('Error al buscar ID en hoja:', sheetName, error);
-    res.status(500).json({ error: 'Error en el servidor' });
+    console.error(error);
+    res.status(500).json({ error: "Error al eliminar" });
   }
+});
+
+// INICIAR SERVIDOR
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
