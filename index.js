@@ -4,7 +4,7 @@ import bodyParser from 'body-parser';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import { google } from 'googleapis';
-import credentials from './credenciales.json' assert { type: "json" };
+const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 
 dotenv.config();
 
