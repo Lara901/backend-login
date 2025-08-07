@@ -59,10 +59,10 @@ app.post("/login", async (req, res) => {
     );
 
     if (usuarioValido) {
-      res.status(200).json({ login: true });
-    } else {
-      res.status(401).json({ login: false, mensaje: "Credenciales inválidas" });
-    }
+  res.status(200).json({ success: true, message: "Login exitoso" });
+} else {
+  res.status(401).json({ success: false, message: "Credenciales inválidas" });
+}
   } catch (error) {
     console.error("Error en login:", error);
     res.status(500).json({ error: error.message || "Error en login" });
