@@ -7,8 +7,8 @@ import fs from "fs";
 // CONFIGURACIÓN
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SPREADSHEET_ID = "1Ai06pOnxSwDWR_skjF4BL05V1jM-aXXeoi6Zl2QsQ8Q"; // ← Reemplaza por tu ID real
-const SHEETS = ["BD", "Control_pacientes", "Flujo_de_caja", "INICIO"];
+const SPREADSHEET_ID = "TU_ID_DE_HOJA"; // Cambia esto por el ID de tu Google Sheet
+const SHEETS = ["BD", "Control pacientes", "Flujo_de_caja", "INICIO"];
 const USUARIOS_SHEET = "Usuarios";
 
 // MIDDLEWARES
@@ -17,41 +17,42 @@ app.use(bodyParser.json());
 
 // AUTENTICACIÓN GOOGLE SHEETS
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON),
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  credentials: JSON.parse(fs.readFileSync("credentials.json", "utf8")),
+  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 const sheets = google.sheets({ version: "v4", auth });
 
 // LOGIN
 app.post("/login", async (req, res) => {
+  const { usuario, contraseña } = req.body;
+
   try {
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: "v4", auth: client });
-
-    const spreadsheetId = "1Ai06pOnxSwDWR_skjF4BL05V1jM-aXXeoi6Zl2QsQ8Q";
-    const range = "Usuarios!A2:B"; // Ajusta si tus columnas son A:usuario, B:contraseña
-
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${USUARIOS_SHEET}!A:B`,
     });
 
     const rows = response.data.values;
+    const headers = rows[0];
+    const data = rows.slice(1);
 
-    const { usuario, contrasena } = req.body;
+    const usuarioIndex = headers.indexOf("usuario");
+    const contraseñaIndex = headers.indexOf("contraseña");
 
-    const usuarioValido = rows.find(
-      ([u, c]) => u === usuario && c === contrasena
+    const usuarioValido = data.find(
+      (row) =>
+        row[usuarioIndex] === usuario &&
+        row[contraseñaIndex] === contraseña
     );
 
     if (usuarioValido) {
-      res.json({ success: true });
+      res.status(200).json({ login: true });
     } else {
-      res.status(401).json({ error: "Credenciales inválidas" });
+      res.status(401).json({ login: false, mensaje: "Credenciales inválidas" });
     }
   } catch (error) {
-    console.error("Error al conectar con Google Sheets:", error);
-    res.status(500).json({ error: "Error al conectar con Google Sheets" });
+    console.error(error);
+    res.status(500).json({ error: "Error en login" });
   }
 });
 
