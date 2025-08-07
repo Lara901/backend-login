@@ -2,7 +2,9 @@ import express from "express";
 import cors from "cors";
 import { google } from "googleapis";
 import bodyParser from "body-parser";
-import fs from "fs";
+import dotenv from "dotenv";
+dotenv.config();
+
 
 // CONFIGURACIÓN
 const app = express();
@@ -16,9 +18,12 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // AUTENTICACIÓN GOOGLE SHEETS
+const googleCreds = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+
+googleCreds.private_key = googleCreds.private_key.replace(/\\n/g, '\n');
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON),
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  credentials: googleCreds,
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 const sheets = google.sheets({ version: "v4", auth });
 
