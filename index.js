@@ -7,7 +7,7 @@ import fs from "fs";
 // CONFIGURACIÓN
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SPREADSHEET_ID = "TU_ID_DE_HOJA"; // Cambia esto por el ID de tu Google Sheet
+const SPREADSHEET_ID = "1Ai06pOnxSwDWR_skjF4BL05V1jM-aXXeoi6Zl2QsQ8Q"; // Cambia esto por el ID de tu Google Sheet
 const SHEETS = ["BD", "Control pacientes", "Flujo_de_caja", "INICIO"];
 const USUARIOS_SHEET = "Usuarios";
 
@@ -17,7 +17,7 @@ app.use(bodyParser.json());
 
 // AUTENTICACIÓN GOOGLE SHEETS
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(fs.readFileSync("credentials.json", "utf8")),
+  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON),
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 const sheets = google.sheets({ version: "v4", auth });
