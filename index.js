@@ -25,45 +25,33 @@ const sheets = google.sheets({ version: "v4", auth });
 // LOGIN
 app.post("/login", async (req, res) => {
   try {
-    const { usuario, contrasena } = req.body;
-
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
 
-    // Leer hoja Usuarios (incluye encabezados)
+    const spreadsheetId = "1Ai06pOnxSwDWR_skjF4BL05V1jM-aXXeoi6Zl2QsQ8Q";
+    const range = "Usuarios!A2:B"; // Ajusta si tus columnas son A:usuario, B:contraseña
+
     const response = await sheets.spreadsheets.values.get({
-      SPREADSHEET_ID,
-      range: "Usuarios", // Asegúrate que esta es la pestaña correcta
+      spreadsheetId,
+      range,
     });
 
     const rows = response.data.values;
-    if (!rows || rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Sin datos" });
-    }
 
-    const headers = rows[0];
-    const usuarios = rows.slice(1).map(row => {
-      const obj = {};
-      headers.forEach((header, i) => {
-        obj[header.toLowerCase()] = row[i]?.trim();
-      });
-      return obj;
-    });
+    const { usuario, contrasena } = req.body;
 
-    const user = usuarios.find(u =>
-      u.usuario?.toLowerCase() === usuario.toLowerCase().trim() &&
-      u.contraseña === contrasena.trim()
+    const usuarioValido = rows.find(
+      ([u, c]) => u === usuario && c === contrasena
     );
 
-    if (user) {
-      res.status(200).json({ success: true });
+    if (usuarioValido) {
+      res.json({ success: true });
     } else {
-      res.status(401).json({ success: false, message: "Credenciales inválidas" });
+      res.status(401).json({ error: "Credenciales inválidas" });
     }
-
   } catch (error) {
-    console.error("Error en login:", error);
-    res.status(500).json({ success: false, message: "Error al conectar con Google Sheets" });
+    console.error("Error al conectar con Google Sheets:", error);
+    res.status(500).json({ error: "Error al conectar con Google Sheets" });
   }
 });
 
