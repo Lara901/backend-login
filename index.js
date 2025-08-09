@@ -99,7 +99,7 @@ app.get("/hoja/:nombre", async (req, res) => {
 });
 
 // OBTENER FILA POR ID
-app.get("/encabezados/:nombre", async (req, res) => {
+app.get("/hoja/:nombre/columnas", async (req, res) => {
   const nombre = req.params.nombre;
 
   if (!SHEETS.includes(nombre)) {
@@ -109,14 +109,14 @@ app.get("/encabezados/:nombre", async (req, res) => {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${nombre}!1:1`, // Solo la fila 1 (encabezados)
+      range: `${nombre}!1:1`, // Solo la primera fila
     });
 
     const headers = response.data.values ? response.data.values[0] : [];
     res.json(headers);
   } catch (error) {
-    console.error("Error al obtener encabezados:", error);
-    res.status(500).json({ error: "Error al obtener encabezados" });
+    console.error(error);
+    res.status(500).json({ error: "Error al obtener columnas" });
   }
 });
 app.get("/hoja/:nombre/:id", async (req, res) => {
@@ -258,25 +258,6 @@ app.delete("/hoja/:nombre/:id", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Error al eliminar" });
-  }
-});
-app.get("/hoja/:nombre/columnas", async (req, res) => {
-  const nombreHoja = req.params.nombre;
-  try {
-    const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
-    await doc.useServiceAccountAuth(creds);
-    await doc.loadInfo();
-
-    const sheet = doc.sheetsByTitle[nombreHoja];
-    if (!sheet) {
-      return res.status(404).json({ error: "Hoja no encontrada" });
-    }
-
-    await sheet.loadHeaderRow();
-    res.json(sheet.headerValues); // Lista de nombres de columnas
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error al obtener columnas" });
   }
 });
 
