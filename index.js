@@ -240,6 +240,25 @@ app.delete("/hoja/:nombre/:id", async (req, res) => {
     res.status(500).json({ error: "Error al eliminar" });
   }
 });
+app.get("/hoja/:nombre/columnas", async (req, res) => {
+  const nombreHoja = req.params.nombre;
+  try {
+    const doc = new GoogleSpreadsheet(SPREADSHEET_ID);
+    await doc.useServiceAccountAuth(creds);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByTitle[nombreHoja];
+    if (!sheet) {
+      return res.status(404).json({ error: "Hoja no encontrada" });
+    }
+
+    await sheet.loadHeaderRow();
+    res.json(sheet.headerValues); // Lista de nombres de columnas
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al obtener columnas" });
+  }
+});
 
 // INICIAR SERVIDOR
 app.listen(PORT, () => {
