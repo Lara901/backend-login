@@ -99,6 +99,26 @@ app.get("/hoja/:nombre", async (req, res) => {
 });
 
 // OBTENER FILA POR ID
+app.get("/encabezados/:nombre", async (req, res) => {
+  const nombre = req.params.nombre;
+
+  if (!SHEETS.includes(nombre)) {
+    return res.status(400).json({ error: "Hoja no permitida" });
+  }
+
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${nombre}!1:1`, // Solo la fila 1 (encabezados)
+    });
+
+    const headers = response.data.values ? response.data.values[0] : [];
+    res.json(headers);
+  } catch (error) {
+    console.error("Error al obtener encabezados:", error);
+    res.status(500).json({ error: "Error al obtener encabezados" });
+  }
+});
 app.get("/hoja/:nombre/:id", async (req, res) => {
   const { nombre, id } = req.params;
   if (!SHEETS.includes(nombre)) {
